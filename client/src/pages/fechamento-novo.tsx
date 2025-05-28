@@ -34,7 +34,7 @@ const PRECOS_SERVICOS = {
   caminhao: 180.00,
   revistoria: 200.00,
   pesquisaProcedencia: 60.00,
-  cautelar: 120.00
+  cautelar: 200.00
 };
 
 const formatCurrency = (value: number): string => {
@@ -133,20 +133,35 @@ export default function FechamentoNovoPage() {
   const calcularTotais = () => {
     const entradas = calcularEntradas();
     const totalRecebimentosPendentes = pagamentosPendentes.reduce((sum, p) => sum + p.valor, 0);
-    const totalSaidasFixas = cartao + pix + deposito + almoco + retiradaSimone + vale;
+    
+    // PIX, Cartão e Depósito são ENTRADAS (não saídas) - para controle do saldo em dinheiro
+    const totalEntradasEletonicas = cartao + pix + deposito;
+    const totalTodasEntradas = entradas.total + totalRecebimentosPendentes + totalEntradasEletonicas;
+    
+    // Saídas reais: apenas almoco, retirada simone, vale, saídas variáveis e contas a receber
+    const totalSaidasReais = almoco + retiradaSimone + vale;
     const totalSaidasVariaveis = saidasVariaveis.reduce((sum, s) => sum + s.valor, 0);
     const totalNovasContas = novasContas.reduce((sum, c) => sum + c.valor, 0);
-    const totalGeralSaidas = totalSaidasFixas + totalSaidasVariaveis + totalNovasContas;
-    const resultadoFinal = entradas.total + totalRecebimentosPendentes - totalGeralSaidas;
+    const totalGeralSaidas = totalSaidasReais + totalSaidasVariaveis + totalNovasContas;
+    
+    // Resultado final = Todas as entradas - Saídas reais
+    const resultadoFinal = totalTodasEntradas - totalGeralSaidas;
+    
+    // Saldo em dinheiro = Entradas padrão + Recebimentos pendentes - Saídas reais
+    // (Exclui PIX, cartão e depósito pois são eletrônicos)
+    const saldoEmDinheiro = entradas.total + totalRecebimentosPendentes - totalGeralSaidas;
 
     return {
       totalEntradasPadrao: entradas.total,
       totalRecebimentosPendentes,
-      totalSaidasFixas,
+      totalEntradasEletonicas,
+      totalTodasEntradas,
+      totalSaidasReais,
       totalSaidasVariaveis,
       totalNovasContas,
       totalGeralSaidas,
-      resultadoFinal
+      resultadoFinal,
+      saldoEmDinheiro
     };
   };
 
@@ -264,7 +279,7 @@ export default function FechamentoNovoPage() {
       // Totais calculados
       totalEntradasPadrao: totais.totalEntradasPadrao.toFixed(2),
       totalRecebimentosPendentes: totais.totalRecebimentosPendentes.toFixed(2),
-      totalSaidasFixas: totais.totalSaidasFixas.toFixed(2),
+      totalSaidasFixas: totais.totalSaidasReais.toFixed(2),
       totalSaidasVariaveis: totais.totalSaidasVariaveis.toFixed(2),
       totalNovasContasReceber: totais.totalNovasContas.toFixed(2),
       totalGeralSaidas: totais.totalGeralSaidas.toFixed(2),
@@ -542,15 +557,17 @@ export default function FechamentoNovoPage() {
             </CardContent>
           </Card>
 
-          {/* Saídas e A Receber */}
+          {/* Entradas Eletrônicas */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-red-600">Saídas e A Receber</CardTitle>
+              <CardTitle className="text-blue-600">Entradas Eletrônicas (Controle de Saldo)</CardTitle>
             </CardHeader>
             <CardContent>
-              <h3 className="text-lg font-semibold text-red-600 mb-4">Saídas Fixas</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Valores que entraram via PIX, cartão ou depósito (para controle do saldo em dinheiro)
+              </p>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 {/* Cartão */}
                 <div>
                   <Label className="flex items-center gap-2">
@@ -564,7 +581,7 @@ export default function FechamentoNovoPage() {
                     value={cartao || ''}
                     onChange={(e) => setCartao(parseFloat(e.target.value) || 0)}
                   />
-                  <p className="text-sm font-semibold text-red-600">
+                  <p className="text-sm font-semibold text-blue-600">
                     Valor: {formatCurrency(cartao)}
                   </p>
                 </div>
@@ -573,7 +590,7 @@ export default function FechamentoNovoPage() {
                 <div>
                   <Label className="flex items-center gap-2">
                     <Smartphone className="h-4 w-4 text-purple-600" />
-                    Pix
+                    PIX
                   </Label>
                   <Input
                     type="number"
@@ -582,7 +599,7 @@ export default function FechamentoNovoPage() {
                     value={pix || ''}
                     onChange={(e) => setPix(parseFloat(e.target.value) || 0)}
                   />
-                  <p className="text-sm font-semibold text-red-600">
+                  <p className="text-sm font-semibold text-purple-600">
                     Valor: {formatCurrency(pix)}
                   </p>
                 </div>
@@ -600,11 +617,29 @@ export default function FechamentoNovoPage() {
                     value={deposito || ''}
                     onChange={(e) => setDeposito(parseFloat(e.target.value) || 0)}
                   />
-                  <p className="text-sm font-semibold text-red-600">
+                  <p className="text-sm font-semibold text-green-600">
                     Valor: {formatCurrency(deposito)}
                   </p>
                 </div>
+              </div>
 
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-lg font-semibold text-blue-800">
+                  Total Entradas Eletrônicas: {formatCurrency(totais.totalEntradasEletonicas)}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Saídas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-red-600">Saídas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <h3 className="text-lg font-semibold text-red-600 mb-4">Saídas Fixas</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {/* Almoço */}
                 <div>
                   <Label className="flex items-center gap-2">
@@ -662,7 +697,7 @@ export default function FechamentoNovoPage() {
 
               <div className="mb-4 p-3 bg-red-50 rounded-lg">
                 <p className="text-lg font-semibold text-red-800">
-                  Total Saídas Fixas: {formatCurrency(totais.totalSaidasFixas)}
+                  Total Saídas Fixas: {formatCurrency(totais.totalSaidasReais)}
                 </p>
               </div>
 
@@ -804,9 +839,13 @@ export default function FechamentoNovoPage() {
                   <span>Total Receb. Pendentes:</span>
                   <span className="font-bold">{formatCurrency(totais.totalRecebimentosPendentes)}</span>
                 </div>
+                <div className="flex justify-between text-blue-600">
+                  <span>Total Entradas Eletrônicas:</span>
+                  <span className="font-bold">{formatCurrency(totais.totalEntradasEletonicas)}</span>
+                </div>
                 <div className="flex justify-between text-red-600">
                   <span>Total Saídas Fixas:</span>
-                  <span className="font-bold">{formatCurrency(totais.totalSaidasFixas)}</span>
+                  <span className="font-bold">{formatCurrency(totais.totalSaidasReais)}</span>
                 </div>
                 <div className="flex justify-between text-red-600">
                   <span>Total Saídas Variáveis:</span>
