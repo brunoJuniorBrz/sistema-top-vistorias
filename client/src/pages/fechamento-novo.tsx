@@ -34,7 +34,7 @@ const PRECOS_SERVICOS = {
   caminhao: 180.00,
   revistoria: 200.00,
   pesquisaProcedencia: 60.00,
-  cautelar: 200.00
+  cautelar: 220.00
 };
 
 const formatCurrency = (value: number): string => {
@@ -134,9 +134,11 @@ export default function FechamentoNovoPage() {
     const entradas = calcularEntradas();
     const totalRecebimentosPendentes = pagamentosPendentes.reduce((sum, p) => sum + p.valor, 0);
     
-    // PIX, Cartão e Depósito são ENTRADAS (não saídas) - para controle do saldo em dinheiro
+    // Entradas brutas (serviços + recebimentos pendentes)
+    const totalEntradasBrutas = entradas.total + totalRecebimentosPendentes;
+    
+    // PIX, Cartão e Depósito SUBTRAEM do total (são valores que não ficaram em dinheiro)
     const totalEntradasEletonicas = cartao + pix + deposito;
-    const totalTodasEntradas = entradas.total + totalRecebimentosPendentes + totalEntradasEletonicas;
     
     // Saídas reais: apenas almoco, retirada simone, vale, saídas variáveis e contas a receber
     const totalSaidasReais = almoco + retiradaSimone + vale;
@@ -144,24 +146,19 @@ export default function FechamentoNovoPage() {
     const totalNovasContas = novasContas.reduce((sum, c) => sum + c.valor, 0);
     const totalGeralSaidas = totalSaidasReais + totalSaidasVariaveis + totalNovasContas;
     
-    // Resultado final = Todas as entradas - Saídas reais
-    const resultadoFinal = totalTodasEntradas - totalGeralSaidas;
-    
-    // Saldo em dinheiro = Entradas padrão + Recebimentos pendentes - Saídas reais
-    // (Exclui PIX, cartão e depósito pois são eletrônicos)
-    const saldoEmDinheiro = entradas.total + totalRecebimentosPendentes - totalGeralSaidas;
+    // Saldo final = Entradas brutas - Entradas eletrônicas - Saídas
+    const saldoFinal = totalEntradasBrutas - totalEntradasEletonicas - totalGeralSaidas;
 
     return {
       totalEntradasPadrao: entradas.total,
       totalRecebimentosPendentes,
+      totalEntradasBrutas,
       totalEntradasEletonicas,
-      totalTodasEntradas,
       totalSaidasReais,
       totalSaidasVariaveis,
       totalNovasContas,
       totalGeralSaidas,
-      resultadoFinal,
-      saldoEmDinheiro
+      saldoFinal
     };
   };
 
@@ -279,11 +276,13 @@ export default function FechamentoNovoPage() {
       // Totais calculados
       totalEntradasPadrao: totais.totalEntradasPadrao.toFixed(2),
       totalRecebimentosPendentes: totais.totalRecebimentosPendentes.toFixed(2),
+      totalEntradasBrutas: totais.totalEntradasBrutas.toFixed(2),
+      totalEntradasEletonicas: totais.totalEntradasEletonicas.toFixed(2),
       totalSaidasFixas: totais.totalSaidasReais.toFixed(2),
       totalSaidasVariaveis: totais.totalSaidasVariaveis.toFixed(2),
       totalNovasContasReceber: totais.totalNovasContas.toFixed(2),
       totalGeralSaidas: totais.totalGeralSaidas.toFixed(2),
-      resultadoFinalCaixa: totais.resultadoFinal.toFixed(2),
+      saldoFinal: totais.saldoFinal.toFixed(2),
     };
 
     salvarFechamentoMutation.mutate(dados);
@@ -859,14 +858,22 @@ export default function FechamentoNovoPage() {
                   <span>Total Geral Saídas (Inclui Novas A Receber):</span>
                   <span>{formatCurrency(totais.totalGeralSaidas)}</span>
                 </div>
+                <div className="flex justify-between text-blue-600 border-t pt-2">
+                  <span>Total Entradas Brutas:</span>
+                  <span className="font-bold">{formatCurrency(totais.totalEntradasBrutas)}</span>
+                </div>
+                <div className="flex justify-between text-orange-600">
+                  <span>(-) Entradas Eletrônicas:</span>
+                  <span className="font-bold">-{formatCurrency(totais.totalEntradasEletonicas)}</span>
+                </div>
                 <div className="flex justify-between text-2xl font-bold border-t-2 pt-4">
-                  <span>Resultado Final (Caixa):</span>
-                  <span className={totais.resultadoFinal >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {formatCurrency(totais.resultadoFinal)}
+                  <span>SALDO FINAL (Dinheiro):</span>
+                  <span className={totais.saldoFinal >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    {formatCurrency(totais.saldoFinal)}
                   </span>
                 </div>
                 <p className="text-center text-sm text-muted-foreground">
-                  (Entradas Padrão + Receb. Pendentes - Total Saídas)
+                  (Entradas Brutas - Entradas Eletrônicas - Total Saídas)
                 </p>
               </div>
             </CardContent>
