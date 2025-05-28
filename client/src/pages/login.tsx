@@ -31,14 +31,19 @@ export default function LoginPage() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginForm) => {
-      const response = await apiRequest('/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify(data),
         headers: {
           'Content-Type': 'application/json',
         },
       });
-      return response;
+      
+      if (!response.ok) {
+        throw new Error('Erro no login');
+      }
+      
+      return response.json();
     },
     onSuccess: (user: any) => {
       toast({
