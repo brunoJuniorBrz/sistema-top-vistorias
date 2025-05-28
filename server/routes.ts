@@ -24,6 +24,28 @@ const saleRequestSchema = z.object({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication Routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, senha } = req.body;
+      
+      if (!email || !senha) {
+        return res.status(400).json({ error: "Email e senha são obrigatórios" });
+      }
+
+      const user = await storage.authenticateUser(email, senha);
+      
+      if (!user) {
+        return res.status(401).json({ error: "Email ou senha incorretos" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      console.error("Erro no login:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+
   // Products routes
   app.get("/api/products", async (req, res) => {
     try {
