@@ -89,13 +89,10 @@ export default function FechamentoNovoPage() {
   const [clienteSelecionado, setClienteSelecionado] = useState<string>('');
   const [valorRecebido, setValorRecebido] = useState<string>('');
   
-  // Estados para saídas fixas
+  // Estados para entradas eletrônicas
   const [cartao, setCartao] = useState(0);
   const [pix, setPix] = useState(0);
   const [deposito, setDeposito] = useState(0);
-  const [almoco, setAlmoco] = useState(0);
-  const [retiradaSimone, setRetiradaSimone] = useState(0);
-  const [vale, setVale] = useState(0);
   
   // Estados para saídas variáveis
   const [saidasVariaveis, setSaidasVariaveis] = useState<SaidaVariavel[]>([]);
@@ -137,28 +134,34 @@ export default function FechamentoNovoPage() {
     // Entradas brutas (serviços + recebimentos pendentes)
     const totalEntradasBrutas = entradas.total + totalRecebimentosPendentes;
     
-    // PIX, Cartão e Depósito SUBTRAEM do total (são valores que não ficaram em dinheiro)
+    // PIX, Cartão e Depósito (entradas eletrônicas)
     const totalEntradasEletonicas = cartao + pix + deposito;
     
-    // Saídas reais: apenas almoco, retirada simone, vale, saídas variáveis e contas a receber
-    const totalSaidasReais = almoco + retiradaSimone + vale;
+    // Saídas: apenas saídas variáveis e contas a receber
     const totalSaidasVariaveis = saidasVariaveis.reduce((sum, s) => sum + s.valor, 0);
     const totalNovasContas = novasContas.reduce((sum, c) => sum + c.valor, 0);
-    const totalGeralSaidas = totalSaidasReais + totalSaidasVariaveis + totalNovasContas;
+    const totalSaidas = totalSaidasVariaveis + totalNovasContas;
     
-    // Saldo final = Entradas brutas - Entradas eletrônicas - Saídas
-    const saldoFinal = totalEntradasBrutas - totalEntradasEletonicas - totalGeralSaidas;
+    // Saldo líquido = Entradas brutas - Saídas
+    const saldoLiquido = totalEntradasBrutas - totalSaidas;
+    
+    // Saldo eletrônico = Entradas eletrônicas
+    const saldoEletronico = totalEntradasEletonicas;
+    
+    // Saldo em dinheiro = Saldo líquido - Saldo eletrônico
+    const saldoEmDinheiro = saldoLiquido - saldoEletronico;
 
     return {
       totalEntradasPadrao: entradas.total,
       totalRecebimentosPendentes,
       totalEntradasBrutas,
       totalEntradasEletonicas,
-      totalSaidasReais,
       totalSaidasVariaveis,
       totalNovasContas,
-      totalGeralSaidas,
-      saldoFinal
+      totalSaidas,
+      saldoLiquido,
+      saldoEletronico,
+      saldoEmDinheiro
     };
   };
 
@@ -269,20 +272,18 @@ export default function FechamentoNovoPage() {
       cartao: cartao.toFixed(2),
       pix: pix.toFixed(2),
       deposito: deposito.toFixed(2),
-      almoco: almoco.toFixed(2),
-      retiradaSimone: retiradaSimone.toFixed(2),
-      vale: vale.toFixed(2),
       
       // Totais calculados
       totalEntradasPadrao: totais.totalEntradasPadrao.toFixed(2),
       totalRecebimentosPendentes: totais.totalRecebimentosPendentes.toFixed(2),
       totalEntradasBrutas: totais.totalEntradasBrutas.toFixed(2),
       totalEntradasEletonicas: totais.totalEntradasEletonicas.toFixed(2),
-      totalSaidasFixas: totais.totalSaidasReais.toFixed(2),
       totalSaidasVariaveis: totais.totalSaidasVariaveis.toFixed(2),
       totalNovasContasReceber: totais.totalNovasContas.toFixed(2),
-      totalGeralSaidas: totais.totalGeralSaidas.toFixed(2),
-      saldoFinal: totais.saldoFinal.toFixed(2),
+      totalSaidas: totais.totalSaidas.toFixed(2),
+      saldoLiquido: totais.saldoLiquido.toFixed(2),
+      saldoEletronico: totais.saldoEletronico.toFixed(2),
+      saldoEmDinheiro: totais.saldoEmDinheiro.toFixed(2),
     };
 
     salvarFechamentoMutation.mutate(dados);
@@ -636,70 +637,6 @@ export default function FechamentoNovoPage() {
               <CardTitle className="text-red-600">Saídas</CardTitle>
             </CardHeader>
             <CardContent>
-              <h3 className="text-lg font-semibold text-red-600 mb-4">Saídas Fixas</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {/* Almoço */}
-                <div>
-                  <Label className="flex items-center gap-2">
-                    <UtensilsCrossed className="h-4 w-4 text-orange-600" />
-                    Almoço
-                  </Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="R$ 0,00"
-                    value={almoco || ''}
-                    onChange={(e) => setAlmoco(parseFloat(e.target.value) || 0)}
-                  />
-                  <p className="text-sm font-semibold text-red-600">
-                    Valor: {formatCurrency(almoco)}
-                  </p>
-                </div>
-
-                {/* Retirada Simone */}
-                <div>
-                  <Label className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-pink-600" />
-                    Retirada Simone
-                  </Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="R$ 0,00"
-                    value={retiradaSimone || ''}
-                    onChange={(e) => setRetiradaSimone(parseFloat(e.target.value) || 0)}
-                  />
-                  <p className="text-sm font-semibold text-red-600">
-                    Valor: {formatCurrency(retiradaSimone)}
-                  </p>
-                </div>
-
-                {/* Vale */}
-                <div>
-                  <Label className="flex items-center gap-2">
-                    <ReceiptText className="h-4 w-4 text-gray-600" />
-                    Vale
-                  </Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="R$ 0,00"
-                    value={vale || ''}
-                    onChange={(e) => setVale(parseFloat(e.target.value) || 0)}
-                  />
-                  <p className="text-sm font-semibold text-red-600">
-                    Valor: {formatCurrency(vale)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-4 p-3 bg-red-50 rounded-lg">
-                <p className="text-lg font-semibold text-red-800">
-                  Total Saídas Fixas: {formatCurrency(totais.totalSaidasReais)}
-                </p>
-              </div>
-
               {/* Saídas Variáveis */}
               <h3 className="text-lg font-semibold mb-4">Saídas Variáveis</h3>
               
@@ -843,10 +780,6 @@ export default function FechamentoNovoPage() {
                   <span className="font-bold">{formatCurrency(totais.totalEntradasEletonicas)}</span>
                 </div>
                 <div className="flex justify-between text-red-600">
-                  <span>Total Saídas Fixas:</span>
-                  <span className="font-bold">{formatCurrency(totais.totalSaidasReais)}</span>
-                </div>
-                <div className="flex justify-between text-red-600">
                   <span>Total Saídas Variáveis:</span>
                   <span className="font-bold">{formatCurrency(totais.totalSaidasVariaveis)}</span>
                 </div>
@@ -855,25 +788,29 @@ export default function FechamentoNovoPage() {
                   <span className="font-bold">{formatCurrency(totais.totalNovasContas)}</span>
                 </div>
                 <div className="flex justify-between text-red-600 text-lg font-bold border-t pt-2">
-                  <span>Total Geral Saídas (Inclui Novas A Receber):</span>
-                  <span>{formatCurrency(totais.totalGeralSaidas)}</span>
+                  <span>Total Saídas:</span>
+                  <span>{formatCurrency(totais.totalSaidas)}</span>
                 </div>
                 <div className="flex justify-between text-blue-600 border-t pt-2">
                   <span>Total Entradas Brutas:</span>
                   <span className="font-bold">{formatCurrency(totais.totalEntradasBrutas)}</span>
                 </div>
+                <div className="flex justify-between text-purple-600 text-lg font-bold">
+                  <span>Saldo Líquido:</span>
+                  <span className="font-bold">{formatCurrency(totais.saldoLiquido)}</span>
+                </div>
                 <div className="flex justify-between text-orange-600">
-                  <span>(-) Entradas Eletrônicas:</span>
-                  <span className="font-bold">-{formatCurrency(totais.totalEntradasEletonicas)}</span>
+                  <span>Saldo Eletrônico (PIX + Cartão + Depósito):</span>
+                  <span className="font-bold">{formatCurrency(totais.saldoEletronico)}</span>
                 </div>
                 <div className="flex justify-between text-2xl font-bold border-t-2 pt-4">
-                  <span>SALDO FINAL (Dinheiro):</span>
-                  <span className={totais.saldoFinal >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {formatCurrency(totais.saldoFinal)}
+                  <span>SALDO EM DINHEIRO:</span>
+                  <span className={totais.saldoEmDinheiro >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    {formatCurrency(totais.saldoEmDinheiro)}
                   </span>
                 </div>
                 <p className="text-center text-sm text-muted-foreground">
-                  (Entradas Brutas - Entradas Eletrônicas - Total Saídas)
+                  (Saldo Líquido - Saldo Eletrônico = Valor físico no caixa)
                 </p>
               </div>
             </CardContent>
