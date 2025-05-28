@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,16 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
-} from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowLeft, 
   Car, 
@@ -25,18 +16,22 @@ import {
   Truck, 
   Calculator, 
   DollarSign,
-  Zap,
+  CreditCard,
+  Smartphone,
+  Building,
+  UtensilsCrossed,
   Users,
   FileText,
   PlusCircle,
   Trash2,
-  CheckCircle
+  CheckCircle,
+  ReceiptText
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { z } from "zod";
-import { insertFechamentoSchema, type InsertFechamento, User } from "@shared/schema";
+import { User } from "@shared/schema";
 
 // Mock current user - in real app this would come from auth context
 const currentUser: User = {
@@ -49,6 +44,17 @@ const currentUser: User = {
   createdAt: new Date()
 };
 
+// Preços fixos dos serviços
+const PRECOS_SERVICOS = {
+  carro: 120,
+  moto: 100,
+  caminhonete: 140,
+  caminhao: 180,
+  revistoria: 200,
+  pesquisaProcedencia: 60,
+  cautelar: 120
+};
+
 const formatCurrency = (value: number | string): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(numValue) || !isFinite(numValue)) return 'R$ 0,00';
@@ -56,44 +62,50 @@ const formatCurrency = (value: number | string): string => {
 };
 
 const parseCurrency = (value: string): number => {
-  return parseFloat(value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+  return parseFloat(value.replace(/[^\d,.]/g, '').replace(',', '.')) || 0;
 };
 
-type VariableExit = {
+type PagamentoPendente = {
   id: string;
-  description: string;
-  amount: number;
-  icon: string;
+  cliente: string;
+  valor: number;
 };
 
-type ReceivedPayment = {
+type SaidaVariavel = {
   id: string;
-  nomeCliente: string;
+  nome: string;
+  valor: number;
+};
+
+type NovaContaReceber = {
+  id: string;
+  cliente: string;
   placa: string;
-  valorPago: number;
-  formaPagamento: string;
+  valor: number;
 };
 
-type ReceivableInput = {
-  id: string;
-  nomeCliente: string;
-  placa: string;
-  valorReceber: number;
-  dataDebito: string;
-};
-
-// Form schema
-const fechamentoFormSchema = insertFechamentoSchema.extend({
-  carros: z.string().min(1, "Campo obrigatório"),
-  carrosQuantidade: z.number().min(0, "Deve ser um número positivo"),
-  motos: z.string().min(1, "Campo obrigatório"),
-  motosQuantidade: z.number().min(0, "Deve ser um número positivo"),
-  caminhoes: z.string().min(1, "Campo obrigatório"),
-  caminhoesQuantidade: z.number().min(0, "Deve ser um número positivo"),
-  aluguel: z.string().min(1, "Campo obrigatório"),
-  energia: z.string().min(1, "Campo obrigatório"),
-  funcionario: z.string().min(1, "Campo obrigatório"),
-  despachante: z.string().min(1, "Campo obrigatório"),
+// Form schema simplificado
+const fechamentoFormSchema = z.object({
+  // Dados básicos
+  dataFechamento: z.string(),
+  operatorName: z.string(),
+  
+  // Entradas - quantidades (valores calculados automaticamente)
+  carroQtde: z.number().min(0),
+  caminhoneteQtde: z.number().min(0),
+  caminhaoQtde: z.number().min(0),
+  motoQtde: z.number().min(0),
+  cautelarQtde: z.number().min(0),
+  revistoriaDetranQtde: z.number().min(0),
+  pesquisaProcedenciaQtde: z.number().min(0),
+  
+  // Saídas fixas
+  cartao: z.number().min(0),
+  pix: z.number().min(0),
+  deposito: z.number().min(0),
+  almoco: z.number().min(0),
+  retiradaSimone: z.number().min(0),
+  vale: z.number().min(0),
 });
 
 export default function FechamentoPage() {
