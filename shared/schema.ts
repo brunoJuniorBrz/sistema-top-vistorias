@@ -114,6 +114,24 @@ export const registerSessions = pgTable("register_sessions", {
   operatorName: text("operator_name").notNull().default("Sistema"),
 });
 
+// Insert schemas for the new cash closing system
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertFechamentoSchema = createInsertSchema(fechamentos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReceivableSchema = createInsertSchema(receivables).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Legacy schemas
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
 });
@@ -131,6 +149,17 @@ export const insertRegisterSessionSchema = createInsertSchema(registerSessions).
   id: true,
 });
 
+// Type definitions for the new cash closing system
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Fechamento = typeof fechamentos.$inferSelect;
+export type InsertFechamento = z.infer<typeof insertFechamentoSchema>;
+
+export type Receivable = typeof receivables.$inferSelect;
+export type InsertReceivable = z.infer<typeof insertReceivableSchema>;
+
+// Legacy types
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 
@@ -143,7 +172,56 @@ export type InsertTransactionItem = z.infer<typeof insertTransactionItemSchema>;
 export type RegisterSession = typeof registerSessions.$inferSelect;
 export type InsertRegisterSession = z.infer<typeof insertRegisterSessionSchema>;
 
-// Additional types for cart and sales
+// Business logic types for the cash closing system
+export type Entrance = {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  icon: string;
+};
+
+export type FixedExit = {
+  id: string;
+  name: string;
+  amount: number;
+  icon: string;
+};
+
+export type VariableExit = {
+  id: string;
+  description: string;
+  amount: number;
+  icon: string;
+};
+
+export type ReceivableInput = {
+  id: string;
+  nomeCliente: string;
+  placa: string;
+  valorReceber: number;
+  dataDebito: string;
+};
+
+export type ReceivedPayment = {
+  id: string;
+  nomeCliente: string;
+  placa: string;
+  valorPago: number;
+  formaPagamento: string;
+};
+
+export type ClosingCalculatedTotals = {
+  totalEntradas: number;
+  totalSaidasFixas: number;
+  totalSaidasVariaveis: number;
+  totalSaidas: number;
+  totalPagamentosRecebidos: number;
+  totalAReceber: number;
+  saldoFinal: number;
+};
+
+// Legacy types for compatibility
 export type CartItem = {
   code: string;
   name: string;

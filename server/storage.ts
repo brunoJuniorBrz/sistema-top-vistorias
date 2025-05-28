@@ -1,4 +1,10 @@
 import { 
+  User,
+  InsertUser,
+  Fechamento,
+  InsertFechamento,
+  Receivable,
+  InsertReceivable,
   Product, 
   InsertProduct, 
   Transaction, 
@@ -8,11 +14,35 @@ import {
   RegisterSession,
   InsertRegisterSession,
   CartItem,
-  DailyStats
+  DailyStats,
+  ClosingCalculatedTotals
 } from "@shared/schema";
 
 export interface IStorage {
-  // Products
+  // Users
+  getUsers(): Promise<User[]>;
+  getUserByUid(uid: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
+  
+  // Fechamentos (Cash Closings)
+  getFechamentos(userId?: string, lojaId?: string, date?: string): Promise<Fechamento[]>;
+  getFechamentoById(id: number): Promise<Fechamento | undefined>;
+  createFechamento(fechamento: InsertFechamento): Promise<Fechamento>;
+  updateFechamento(id: number, fechamento: Partial<InsertFechamento>): Promise<Fechamento | undefined>;
+  deleteFechamento(id: number): Promise<boolean>;
+  
+  // Receivables
+  getReceivables(fechamentoId?: number, userId?: string, status?: string): Promise<Receivable[]>;
+  createReceivable(receivable: InsertReceivable): Promise<Receivable>;
+  updateReceivableStatus(id: number, status: string, dataPagamento?: Date, dataBaixa?: Date): Promise<Receivable | undefined>;
+  
+  // Authentication helpers
+  authenticateUser(email: string, password: string): Promise<User | null>;
+  getLojaIdFromEmail(email: string): string | null;
+
+  // Legacy methods for compatibility
   getProducts(): Promise<Product[]>;
   getProductByCode(code: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
@@ -20,34 +50,53 @@ export interface IStorage {
   deleteProduct(id: number): Promise<boolean>;
   updateProductStock(code: string, quantity: number): Promise<boolean>;
 
-  // Transactions
   getTransactions(): Promise<(Transaction & { items: TransactionItem[] })[]>;
   getTransactionById(id: string): Promise<(Transaction & { items: TransactionItem[] }) | undefined>;
   createTransaction(transaction: InsertTransaction, items: InsertTransactionItem[]): Promise<Transaction>;
 
-  // Register Sessions
   getCurrentRegisterSession(): Promise<RegisterSession | undefined>;
   createRegisterSession(session: InsertRegisterSession): Promise<RegisterSession>;
   updateRegisterSession(id: number, session: Partial<InsertRegisterSession>): Promise<RegisterSession | undefined>;
   
-  // Stats
   getDailyStats(date?: string): Promise<DailyStats>;
 }
 
 export class MemStorage implements IStorage {
+  // Cash closing system data
+  private users: Map<number, User>;
+  private fechamentos: Map<number, Fechamento>;
+  private receivables: Map<number, Receivable>;
+  
+  // Legacy data structures
   private products: Map<number, Product>;
   private transactions: Map<string, Transaction>;
   private transactionItems: Map<string, TransactionItem[]>;
   private registerSessions: Map<number, RegisterSession>;
+  
+  // ID counters
+  private currentUserId: number;
+  private currentFechamentoId: number;
+  private currentReceivableId: number;
   private currentProductId: number;
   private currentTransactionId: number;
   private currentSessionId: number;
 
   constructor() {
+    // Initialize cash closing system data
+    this.users = new Map();
+    this.fechamentos = new Map();
+    this.receivables = new Map();
+    
+    // Initialize legacy data
     this.products = new Map();
     this.transactions = new Map();
     this.transactionItems = new Map();
     this.registerSessions = new Map();
+    
+    // Initialize ID counters
+    this.currentUserId = 1;
+    this.currentFechamentoId = 1;
+    this.currentReceivableId = 1;
     this.currentProductId = 1;
     this.currentTransactionId = 1;
     this.currentSessionId = 1;
@@ -57,7 +106,103 @@ export class MemStorage implements IStorage {
   }
 
   private initializeData() {
-    // Sample products
+    // Initialize users based on the original Firebase mapping
+    const sampleUsers: User[] = [
+      {
+        id: 1,
+        uid: 'txxp9hdSthOmlDKGipwduZJNNak1',
+        email: 'adm@topvistorias.com',
+        name: 'Administrador',
+        lojaId: 'admin',
+        role: 'admin',
+        createdAt: new Date()
+      },
+      {
+        id: 2,
+        uid: 'ijNp5AAiFvWrBFCVq7hQ9L05d5Q2',
+        email: 'topcapaobonito@hotmail.com',
+        name: 'Operador Capão Bonito',
+        lojaId: 'capao',
+        role: 'user',
+        createdAt: new Date()
+      },
+      {
+        id: 3,
+        uid: 'user_guapiara_123',
+        email: 'topguapiara@hotmail.com',
+        name: 'Operador Guapiara',
+        lojaId: 'guapiara',
+        role: 'user',
+        createdAt: new Date()
+      },
+      {
+        id: 4,
+        uid: 'user_ribeirao_456',
+        email: 'topribeiraobranco@hotmail.com',
+        name: 'Operador Ribeirão Branco',
+        lojaId: 'ribeirao',
+        role: 'user',
+        createdAt: new Date()
+      }
+    ];
+
+    sampleUsers.forEach(user => {
+      this.users.set(user.id, user);
+      this.currentUserId = Math.max(this.currentUserId, user.id + 1);
+    });
+
+    // Sample fechamento data
+    const today = new Date().toISOString().split('T')[0];
+    const sampleFechamento: Fechamento = {
+      id: 1,
+      dataFechamento: today,
+      lojaId: 'capao',
+      userId: 'ijNp5AAiFvWrBFCVq7hQ9L05d5Q2',
+      operatorName: 'Operador Capão Bonito',
+      
+      // Entradas
+      carros: '2400.00',
+      carrosQuantidade: 12,
+      motos: '800.00',
+      motosQuantidade: 8,
+      caminhoes: '600.00',
+      caminhoesQuantidade: 3,
+      
+      // Saídas Fixas
+      aluguel: '800.00',
+      energia: '150.00',
+      funcionario: '1200.00',
+      despachante: '300.00',
+      
+      // JSON fields
+      saidasVariaveis: JSON.stringify([
+        { id: '1', description: 'Material de limpeza', amount: 50.00, icon: 'cleaning' },
+        { id: '2', description: 'Combustível', amount: 120.00, icon: 'fuel' }
+      ]),
+      pagamentosRecebidos: JSON.stringify([
+        { id: '1', nomeCliente: 'João Silva', placa: 'ABC-1234', valorPago: 200.00, formaPagamento: 'Dinheiro' }
+      ]),
+      aReceber: JSON.stringify([
+        { id: '1', nomeCliente: 'Maria Santos', placa: 'XYZ-5678', valorReceber: 180.00, dataDebito: today }
+      ]),
+      
+      // Calculated totals
+      totalEntradas: '3800.00',
+      totalSaidasFixas: '2450.00',
+      totalSaidasVariaveis: '170.00',
+      totalSaidas: '2620.00',
+      totalPagamentosRecebidos: '200.00',
+      totalAReceber: '180.00',
+      saldoFinal: '1380.00',
+      
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    this.fechamentos.set(1, sampleFechamento);
+    this.currentFechamentoId = 2;
+
+    // Legacy data for compatibility
     const sampleProducts: Product[] = [
       { id: 1, code: 'SKU001', name: 'Smartphone XYZ', price: '899.90', stock: 25, category: 'Eletrônicos' },
       { id: 2, code: 'SKU002', name: 'Fone Bluetooth', price: '149.90', stock: 50, category: 'Eletrônicos' },
@@ -71,8 +216,6 @@ export class MemStorage implements IStorage {
       this.currentProductId = Math.max(this.currentProductId, product.id + 1);
     });
 
-    // Initialize register session
-    const today = new Date().toISOString().split('T')[0];
     const session: RegisterSession = {
       id: 1,
       date: today,
@@ -82,11 +225,155 @@ export class MemStorage implements IStorage {
       expectedBalance: '847.30',
       physicalBalance: null,
       reconciled: false,
-      operatorName: 'João Silva'
+      operatorName: 'Sistema'
     };
     this.registerSessions.set(1, session);
   }
 
+  // User management methods
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async getUserByUid(uid: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.uid === uid);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.email === email);
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = this.currentUserId++;
+    const user: User = { ...insertUser, id, createdAt: new Date() };
+    this.users.set(id, user);
+    return user;
+  }
+
+  async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+
+    const updatedUser = { ...user, ...updateData };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  // Fechamentos management methods
+  async getFechamentos(userId?: string, lojaId?: string, date?: string): Promise<Fechamento[]> {
+    let fechamentos = Array.from(this.fechamentos.values());
+
+    if (userId) {
+      fechamentos = fechamentos.filter(f => f.userId === userId);
+    }
+    if (lojaId) {
+      fechamentos = fechamentos.filter(f => f.lojaId === lojaId);
+    }
+    if (date) {
+      fechamentos = fechamentos.filter(f => f.dataFechamento === date);
+    }
+
+    return fechamentos.sort((a, b) => new Date(b.dataFechamento).getTime() - new Date(a.dataFechamento).getTime());
+  }
+
+  async getFechamentoById(id: number): Promise<Fechamento | undefined> {
+    return this.fechamentos.get(id);
+  }
+
+  async createFechamento(insertFechamento: InsertFechamento): Promise<Fechamento> {
+    const id = this.currentFechamentoId++;
+    const fechamento: Fechamento = { 
+      ...insertFechamento, 
+      id, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.fechamentos.set(id, fechamento);
+    return fechamento;
+  }
+
+  async updateFechamento(id: number, updateData: Partial<InsertFechamento>): Promise<Fechamento | undefined> {
+    const fechamento = this.fechamentos.get(id);
+    if (!fechamento) return undefined;
+
+    const updatedFechamento = { 
+      ...fechamento, 
+      ...updateData, 
+      updatedAt: new Date() 
+    };
+    this.fechamentos.set(id, updatedFechamento);
+    return updatedFechamento;
+  }
+
+  async deleteFechamento(id: number): Promise<boolean> {
+    return this.fechamentos.delete(id);
+  }
+
+  // Receivables management methods
+  async getReceivables(fechamentoId?: number, userId?: string, status?: string): Promise<Receivable[]> {
+    let receivables = Array.from(this.receivables.values());
+
+    if (fechamentoId) {
+      receivables = receivables.filter(r => r.fechamentoId === fechamentoId);
+    }
+    if (userId) {
+      receivables = receivables.filter(r => r.userId === userId);
+    }
+    if (status) {
+      receivables = receivables.filter(r => r.status === status);
+    }
+
+    return receivables.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createReceivable(insertReceivable: InsertReceivable): Promise<Receivable> {
+    const id = this.currentReceivableId++;
+    const receivable: Receivable = { 
+      ...insertReceivable, 
+      id, 
+      createdAt: new Date() 
+    };
+    this.receivables.set(id, receivable);
+    return receivable;
+  }
+
+  async updateReceivableStatus(id: number, status: string, dataPagamento?: Date, dataBaixa?: Date): Promise<Receivable | undefined> {
+    const receivable = this.receivables.get(id);
+    if (!receivable) return undefined;
+
+    const updatedReceivable = { 
+      ...receivable, 
+      status,
+      dataPagamento: dataPagamento || receivable.dataPagamento,
+      dataBaixa: dataBaixa || receivable.dataBaixa
+    };
+    this.receivables.set(id, updatedReceivable);
+    return updatedReceivable;
+  }
+
+  // Authentication helper methods
+  async authenticateUser(email: string, password: string): Promise<User | null> {
+    // Simple authentication - in real app you'd hash passwords
+    const user = await this.getUserByEmail(email);
+    if (user) {
+      // For demo purposes, accept any password for existing users
+      return user;
+    }
+    return null;
+  }
+
+  getLojaIdFromEmail(email: string): string | null {
+    if (!email) return null;
+    
+    if (email === "topguapiara@hotmail.com") return "guapiara";
+    if (email === "topribeiraobranco@hotmail.com") return "ribeirao";
+    if (email === "topcapaobonito@hotmail.com") return "capao";
+    if (email === "adm@topvistorias.com") return "admin";
+    
+    return null;
+  }
+
+  // Legacy methods for compatibility
   async getProducts(): Promise<Product[]> {
     return Array.from(this.products.values());
   }

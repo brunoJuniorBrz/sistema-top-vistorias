@@ -1,7 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertTransactionSchema, insertTransactionItemSchema, SaleRequest } from "@shared/schema";
+import { 
+  insertProductSchema, 
+  insertTransactionSchema, 
+  insertTransactionItemSchema, 
+  insertUserSchema,
+  insertFechamentoSchema,
+  insertReceivableSchema,
+  SaleRequest 
+} from "@shared/schema";
 import { z } from "zod";
 
 const saleRequestSchema = z.object({
@@ -232,6 +240,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch statistics" });
+    }
+  });
+
+  // Fechamentos (Cash Closing) routes
+  app.get("/api/fechamentos", async (req, res) => {
+    try {
+      const { userId, lojaId, date } = req.query;
+      const fechamentos = await storage.getFechamentos(
+        userId as string, 
+        lojaId as string, 
+        date as string
+      );
+      res.json(fechamentos);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch fechamentos" });
+    }
+  });
+
+  app.get("/api/fechamentos/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const fechamento = await storage.getFechamentoById(id);
+      if (!fechamento) {
+        return res.status(404).json({ message: "Fechamento not found" });
+      }
+      res.json(fechamento);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch fechamento" });
+    }
+  });
+
+  app.post("/api/fechamentos", async (req, res) => {
+    try {
+      const fechamentoData = insertFechamentoSchema.parse(req.body);
+      const fechamento = await storage.createFechamento(fechamentoData);
+      res.status(201).json(fechamento);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid fechamento data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create fechamento" });
+    }
+  });
+
+  app.put("/api/fechamentos/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const fechamentoData = insertFechamentoSchema.partial().parse(req.body);
+      const fechamento = await storage.updateFechamento(id, fechamentoData);
+      if (!fechamento) {
+        return res.status(404).json({ message: "Fechamento not found" });
+      }
+      res.json(fechamento);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid fechamento data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update fechamento" });
+    }
+  });
+
+  app.delete("/api/fechamentos/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteFechamento(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Fechamento not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete fechamento" });
+    }
+  });
+
+  // Users routes
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/users/by-email/:email", async (req, res) => {
+    try {
+      const email = decodeURIComponent(req.params.email);
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  app.post("/api/users", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(userData);
+      res.status(201).json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Authentication route
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      const user = await storage.authenticateUser(email, password);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      res.json({ 
+        user: {
+          uid: user.uid,
+          email: user.email,
+          name: user.name,
+          lojaId: user.lojaId,
+          role: user.role
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Authentication failed" });
+    }
+  });
+
+  // Receivables routes
+  app.get("/api/receivables", async (req, res) => {
+    try {
+      const { fechamentoId, userId, status } = req.query;
+      const receivables = await storage.getReceivables(
+        fechamentoId ? parseInt(fechamentoId as string) : undefined,
+        userId as string,
+        status as string
+      );
+      res.json(receivables);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch receivables" });
+    }
+  });
+
+  app.post("/api/receivables", async (req, res) => {
+    try {
+      const receivableData = insertReceivableSchema.parse(req.body);
+      const receivable = await storage.createReceivable(receivableData);
+      res.status(201).json(receivable);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid receivable data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create receivable" });
+    }
+  });
+
+  app.patch("/api/receivables/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, dataPagamento, dataBaixa } = req.body;
+      
+      const receivable = await storage.updateReceivableStatus(
+        id, 
+        status,
+        dataPagamento ? new Date(dataPagamento) : undefined,
+        dataBaixa ? new Date(dataBaixa) : undefined
+      );
+      
+      if (!receivable) {
+        return res.status(404).json({ message: "Receivable not found" });
+      }
+      
+      res.json(receivable);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update receivable status" });
     }
   });
 
