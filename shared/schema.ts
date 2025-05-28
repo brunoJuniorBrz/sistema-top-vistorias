@@ -2,6 +2,78 @@ import { pgTable, text, serial, integer, decimal, timestamp, boolean } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Users table
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  uid: text("uid").notNull().unique(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  lojaId: text("loja_id").notNull(),
+  role: text("role").notNull().default("user"), // user, admin
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Fechamentos (Cash Closings) table
+export const fechamentos = pgTable("fechamentos", {
+  id: serial("id").primaryKey(),
+  dataFechamento: text("data_fechamento").notNull(), // YYYY-MM-DD format
+  lojaId: text("loja_id").notNull(),
+  userId: text("user_id").notNull(),
+  operatorName: text("operator_name").notNull(),
+  
+  // Entradas (Entrances)
+  carros: decimal("carros", { precision: 10, scale: 2 }).notNull().default("0"),
+  carrosQuantidade: integer("carros_quantidade").notNull().default(0),
+  motos: decimal("motos", { precision: 10, scale: 2 }).notNull().default("0"),
+  motosQuantidade: integer("motos_quantidade").notNull().default(0),
+  caminhoes: decimal("caminhoes", { precision: 10, scale: 2 }).notNull().default("0"),
+  caminhoesQuantidade: integer("caminhoes_quantidade").notNull().default(0),
+  
+  // Saídas Fixas (Fixed Exits)
+  aluguel: decimal("aluguel", { precision: 10, scale: 2 }).notNull().default("0"),
+  energia: decimal("energia", { precision: 10, scale: 2 }).notNull().default("0"),
+  funcionario: decimal("funcionario", { precision: 10, scale: 2 }).notNull().default("0"),
+  despachante: decimal("despachante", { precision: 10, scale: 2 }).notNull().default("0"),
+  
+  // Saídas Variáveis (Variable Exits)
+  saidasVariaveis: text("saidas_variaveis").notNull().default("[]"), // JSON string
+  
+  // Pagamentos Recebidos (Received Payments)
+  pagamentosRecebidos: text("pagamentos_recebidos").notNull().default("[]"), // JSON string
+  
+  // A Receber (Receivables)
+  aReceber: text("a_receber").notNull().default("[]"), // JSON string
+  
+  // Calculated totals
+  totalEntradas: decimal("total_entradas", { precision: 10, scale: 2 }).notNull().default("0"),
+  totalSaidasFixas: decimal("total_saidas_fixas", { precision: 10, scale: 2 }).notNull().default("0"),
+  totalSaidasVariaveis: decimal("total_saidas_variaveis", { precision: 10, scale: 2 }).notNull().default("0"),
+  totalSaidas: decimal("total_saidas", { precision: 10, scale: 2 }).notNull().default("0"),
+  totalPagamentosRecebidos: decimal("total_pagamentos_recebidos", { precision: 10, scale: 2 }).notNull().default("0"),
+  totalAReceber: decimal("total_a_receber", { precision: 10, scale: 2 }).notNull().default("0"),
+  saldoFinal: decimal("saldo_final", { precision: 10, scale: 2 }).notNull().default("0"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Receivables table (for tracking a receber items)
+export const receivables = pgTable("receivables", {
+  id: serial("id").primaryKey(),
+  fechamentoId: integer("fechamento_id").notNull(),
+  nomeCliente: text("nome_cliente").notNull(),
+  placa: text("placa").notNull(),
+  valorReceber: decimal("valor_receber", { precision: 10, scale: 2 }).notNull(),
+  dataDebito: text("data_debito").notNull(), // YYYY-MM-DD
+  lojaId: text("loja_id").notNull(),
+  userId: text("user_id").notNull(),
+  status: text("status").notNull().default("pendente"), // pendente, pago, baixado
+  dataPagamento: timestamp("data_pagamento"),
+  dataBaixa: timestamp("data_baixa"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Keep legacy tables for reference but focus on the new structure
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   code: text("code").notNull().unique(),
