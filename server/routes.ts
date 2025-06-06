@@ -8,6 +8,11 @@ import {
   insertUserSchema,
   insertFechamentoSchema,
   insertReceivableSchema,
+  insertUsuarioSchema,
+  insertEntradaSchema,
+  insertEntradaEletronicaSchema,
+  insertSaidaSchema,
+  insertAReceberSchema,
   SaleRequest 
 } from "@shared/schema";
 import { z } from "zod";
@@ -43,6 +48,352 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro no login:", error);
       res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+
+  // USUARIOS routes
+  app.get("/api/usuarios", async (req, res) => {
+    try {
+      const usuarios = await storage.getUsuarios();
+      res.json(usuarios);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar usuários" });
+    }
+  });
+
+  app.get("/api/usuarios/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const usuario = await storage.getUsuarioById(id);
+      if (!usuario) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      res.json(usuario);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar usuário" });
+    }
+  });
+
+  app.post("/api/usuarios", async (req, res) => {
+    try {
+      const usuarioData = insertUsuarioSchema.parse(req.body);
+      const usuario = await storage.createUsuario(usuarioData);
+      res.status(201).json(usuario);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar usuário" });
+    }
+  });
+
+  app.put("/api/usuarios/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const usuarioData = insertUsuarioSchema.partial().parse(req.body);
+      const usuario = await storage.updateUsuario(id, usuarioData);
+      if (!usuario) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      res.json(usuario);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar usuário" });
+    }
+  });
+
+  app.delete("/api/usuarios/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteUsuario(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao deletar usuário" });
+    }
+  });
+
+  // ENTRADAS routes
+  app.get("/api/entradas", async (req, res) => {
+    try {
+      const { usuarioId, data } = req.query;
+      const entradas = await storage.getEntradas(
+        usuarioId ? parseInt(usuarioId as string) : undefined,
+        data as string
+      );
+      res.json(entradas);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar entradas" });
+    }
+  });
+
+  app.get("/api/entradas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const entrada = await storage.getEntradaById(id);
+      if (!entrada) {
+        return res.status(404).json({ message: "Entrada não encontrada" });
+      }
+      res.json(entrada);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar entrada" });
+    }
+  });
+
+  app.post("/api/entradas", async (req, res) => {
+    try {
+      const entradaData = insertEntradaSchema.parse(req.body);
+      const entrada = await storage.createEntrada(entradaData);
+      res.status(201).json(entrada);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar entrada" });
+    }
+  });
+
+  app.put("/api/entradas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const entradaData = insertEntradaSchema.partial().parse(req.body);
+      const entrada = await storage.updateEntrada(id, entradaData);
+      if (!entrada) {
+        return res.status(404).json({ message: "Entrada não encontrada" });
+      }
+      res.json(entrada);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar entrada" });
+    }
+  });
+
+  app.delete("/api/entradas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteEntrada(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Entrada não encontrada" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao deletar entrada" });
+    }
+  });
+
+  // ENTRADAS ELETRÔNICAS routes
+  app.get("/api/entradas-eletronicas", async (req, res) => {
+    try {
+      const { usuarioId, data } = req.query;
+      const entradas = await storage.getEntradasEletronicas(
+        usuarioId ? parseInt(usuarioId as string) : undefined,
+        data as string
+      );
+      res.json(entradas);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar entradas eletrônicas" });
+    }
+  });
+
+  app.get("/api/entradas-eletronicas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const entrada = await storage.getEntradaEletronicaById(id);
+      if (!entrada) {
+        return res.status(404).json({ message: "Entrada eletrônica não encontrada" });
+      }
+      res.json(entrada);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar entrada eletrônica" });
+    }
+  });
+
+  app.post("/api/entradas-eletronicas", async (req, res) => {
+    try {
+      const entradaData = insertEntradaEletronicaSchema.parse(req.body);
+      const entrada = await storage.createEntradaEletronica(entradaData);
+      res.status(201).json(entrada);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar entrada eletrônica" });
+    }
+  });
+
+  app.put("/api/entradas-eletronicas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const entradaData = insertEntradaEletronicaSchema.partial().parse(req.body);
+      const entrada = await storage.updateEntradaEletronica(id, entradaData);
+      if (!entrada) {
+        return res.status(404).json({ message: "Entrada eletrônica não encontrada" });
+      }
+      res.json(entrada);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar entrada eletrônica" });
+    }
+  });
+
+  app.delete("/api/entradas-eletronicas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteEntradaEletronica(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Entrada eletrônica não encontrada" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao deletar entrada eletrônica" });
+    }
+  });
+
+  // SAÍDAS routes
+  app.get("/api/saidas", async (req, res) => {
+    try {
+      const { usuarioId, data } = req.query;
+      const saidas = await storage.getSaidas(
+        usuarioId ? parseInt(usuarioId as string) : undefined,
+        data as string
+      );
+      res.json(saidas);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar saídas" });
+    }
+  });
+
+  app.get("/api/saidas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const saida = await storage.getSaidaById(id);
+      if (!saida) {
+        return res.status(404).json({ message: "Saída não encontrada" });
+      }
+      res.json(saida);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar saída" });
+    }
+  });
+
+  app.post("/api/saidas", async (req, res) => {
+    try {
+      const saidaData = insertSaidaSchema.parse(req.body);
+      const saida = await storage.createSaida(saidaData);
+      res.status(201).json(saida);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar saída" });
+    }
+  });
+
+  app.put("/api/saidas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const saidaData = insertSaidaSchema.partial().parse(req.body);
+      const saida = await storage.updateSaida(id, saidaData);
+      if (!saida) {
+        return res.status(404).json({ message: "Saída não encontrada" });
+      }
+      res.json(saida);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar saída" });
+    }
+  });
+
+  app.delete("/api/saidas/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteSaida(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Saída não encontrada" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao deletar saída" });
+    }
+  });
+
+  // A RECEBER routes
+  app.get("/api/a-receber", async (req, res) => {
+    try {
+      const { usuarioId, data } = req.query;
+      const aReceber = await storage.getAReceber(
+        usuarioId ? parseInt(usuarioId as string) : undefined,
+        data as string
+      );
+      res.json(aReceber);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar a receber" });
+    }
+  });
+
+  app.get("/api/a-receber/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const aReceber = await storage.getAReceberById(id);
+      if (!aReceber) {
+        return res.status(404).json({ message: "A receber não encontrado" });
+      }
+      res.json(aReceber);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar a receber" });
+    }
+  });
+
+  app.post("/api/a-receber", async (req, res) => {
+    try {
+      const aReceberData = insertAReceberSchema.parse(req.body);
+      const aReceber = await storage.createAReceber(aReceberData);
+      res.status(201).json(aReceber);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar a receber" });
+    }
+  });
+
+  app.put("/api/a-receber/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const aReceberData = insertAReceberSchema.partial().parse(req.body);
+      const aReceber = await storage.updateAReceber(id, aReceberData);
+      if (!aReceber) {
+        return res.status(404).json({ message: "A receber não encontrado" });
+      }
+      res.json(aReceber);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar a receber" });
+    }
+  });
+
+  app.delete("/api/a-receber/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteAReceber(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "A receber não encontrado" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao deletar a receber" });
     }
   });
 
