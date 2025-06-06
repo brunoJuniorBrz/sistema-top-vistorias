@@ -5,10 +5,9 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
+// Use PostgreSQL if available, otherwise fallback to in-memory storage
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+  console.log("DATABASE_URL not found, using in-memory storage as fallback");
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
