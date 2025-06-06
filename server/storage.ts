@@ -142,6 +142,13 @@ export class MemStorage implements IStorage {
   private currentSessionId: number;
 
   constructor() {
+    // Initialize new tables
+    this.usuarios = new Map();
+    this.entradas = new Map();
+    this.entradasEletronicas = new Map();
+    this.saidas = new Map();
+    this.aReceber = new Map();
+    
     // Initialize cash closing system data
     this.users = new Map();
     this.fechamentos = new Map();
@@ -154,6 +161,11 @@ export class MemStorage implements IStorage {
     this.registerSessions = new Map();
     
     // Initialize ID counters
+    this.currentUsuarioId = 1;
+    this.currentEntradaId = 1;
+    this.currentEntradaEletronicaId = 1;
+    this.currentSaidaId = 1;
+    this.currentAReceberId = 1;
     this.currentUserId = 1;
     this.currentFechamentoId = 1;
     this.currentReceivableId = 1;
@@ -166,7 +178,101 @@ export class MemStorage implements IStorage {
   }
 
   private initializeData() {
-    // Initialize users based on the original Firebase mapping
+    // Initialize sample usuarios (nova estrutura)
+    const sampleUsuarios: Usuario[] = [
+      {
+        id: 1,
+        nome: 'Administrador Sistema',
+        email: 'admin@sistema.com',
+        senha: 'admin123',
+        tipoUsuario: 'admin'
+      },
+      {
+        id: 2,
+        nome: 'João Funcionário',
+        email: 'joao@sistema.com',
+        senha: 'func123',
+        tipoUsuario: 'funcionario'
+      }
+    ];
+
+    sampleUsuarios.forEach(usuario => {
+      this.usuarios.set(usuario.id, usuario);
+      this.currentUsuarioId = Math.max(this.currentUsuarioId, usuario.id + 1);
+    });
+
+    // Initialize sample entradas
+    const currentDate = new Date();
+    const sampleEntradas: Entrada[] = [
+      {
+        id: 1,
+        valor: "100.50",
+        descricao: "Venda de produto",
+        data: currentDate.toISOString().split('T')[0],
+        hora: "10:30:00",
+        usuarioId: 1
+      }
+    ];
+
+    sampleEntradas.forEach(entrada => {
+      this.entradas.set(entrada.id, entrada);
+      this.currentEntradaId = Math.max(this.currentEntradaId, entrada.id + 1);
+    });
+
+    // Initialize sample entradas eletrônicas
+    const sampleEntradasEletronicas: EntradaEletronica[] = [
+      {
+        id: 1,
+        valor: "250.00",
+        formaPagamento: "PIX",
+        descricao: "Pagamento eletrônico",
+        data: today.toISOString().split('T')[0],
+        hora: "14:15:00",
+        usuarioId: 1
+      }
+    ];
+
+    sampleEntradasEletronicas.forEach(entrada => {
+      this.entradasEletronicas.set(entrada.id, entrada);
+      this.currentEntradaEletronicaId = Math.max(this.currentEntradaEletronicaId, entrada.id + 1);
+    });
+
+    // Initialize sample saídas
+    const sampleSaidas: Saida[] = [
+      {
+        id: 1,
+        valor: "50.00",
+        descricao: "Combustível",
+        data: today.toISOString().split('T')[0],
+        hora: "09:00:00",
+        usuarioId: 1
+      }
+    ];
+
+    sampleSaidas.forEach(saida => {
+      this.saidas.set(saida.id, saida);
+      this.currentSaidaId = Math.max(this.currentSaidaId, saida.id + 1);
+    });
+
+    // Initialize sample a receber
+    const sampleAReceber: AReceber[] = [
+      {
+        id: 1,
+        valor: "300.00",
+        cliente: "Cliente XYZ",
+        descricao: "Serviço prestado",
+        data: today.toISOString().split('T')[0],
+        hora: "16:45:00",
+        usuarioId: 1
+      }
+    ];
+
+    sampleAReceber.forEach(aReceber => {
+      this.aReceber.set(aReceber.id, aReceber);
+      this.currentAReceberId = Math.max(this.currentAReceberId, aReceber.id + 1);
+    });
+
+    // Initialize users based on the original Firebase mapping (legacy)
     const sampleUsers: User[] = [
       {
         id: 1,
@@ -289,6 +395,199 @@ export class MemStorage implements IStorage {
     };
     this.registerSessions.set(1, session);
   }
+
+  // =============================================================
+  // MÉTODOS PARA AS NOVAS TABELAS ESPECIFICADAS
+  // =============================================================
+
+  // Usuarios methods
+  async getUsuarios(): Promise<Usuario[]> {
+    return Array.from(this.usuarios.values());
+  }
+
+  async getUsuarioById(id: number): Promise<Usuario | undefined> {
+    return this.usuarios.get(id);
+  }
+
+  async getUsuarioByEmail(email: string): Promise<Usuario | undefined> {
+    return Array.from(this.usuarios.values()).find(u => u.email === email);
+  }
+
+  async createUsuario(insertUsuario: InsertUsuario): Promise<Usuario> {
+    const id = this.currentUsuarioId++;
+    const usuario: Usuario = { ...insertUsuario, id };
+    this.usuarios.set(id, usuario);
+    return usuario;
+  }
+
+  async updateUsuario(id: number, updateData: Partial<InsertUsuario>): Promise<Usuario | undefined> {
+    const usuario = this.usuarios.get(id);
+    if (!usuario) return undefined;
+
+    const updatedUsuario = { ...usuario, ...updateData };
+    this.usuarios.set(id, updatedUsuario);
+    return updatedUsuario;
+  }
+
+  async deleteUsuario(id: number): Promise<boolean> {
+    return this.usuarios.delete(id);
+  }
+
+  // Entradas methods
+  async getEntradas(usuarioId?: number, data?: string): Promise<Entrada[]> {
+    let entradas = Array.from(this.entradas.values());
+
+    if (usuarioId) {
+      entradas = entradas.filter(e => e.usuarioId === usuarioId);
+    }
+    if (data) {
+      entradas = entradas.filter(e => e.data === data);
+    }
+
+    return entradas.sort((a, b) => new Date(b.data + ' ' + b.hora).getTime() - new Date(a.data + ' ' + a.hora).getTime());
+  }
+
+  async getEntradaById(id: number): Promise<Entrada | undefined> {
+    return this.entradas.get(id);
+  }
+
+  async createEntrada(insertEntrada: InsertEntrada): Promise<Entrada> {
+    const id = this.currentEntradaId++;
+    const entrada: Entrada = { ...insertEntrada, id };
+    this.entradas.set(id, entrada);
+    return entrada;
+  }
+
+  async updateEntrada(id: number, updateData: Partial<InsertEntrada>): Promise<Entrada | undefined> {
+    const entrada = this.entradas.get(id);
+    if (!entrada) return undefined;
+
+    const updatedEntrada = { ...entrada, ...updateData };
+    this.entradas.set(id, updatedEntrada);
+    return updatedEntrada;
+  }
+
+  async deleteEntrada(id: number): Promise<boolean> {
+    return this.entradas.delete(id);
+  }
+
+  // Entradas Eletrônicas methods
+  async getEntradasEletronicas(usuarioId?: number, data?: string): Promise<EntradaEletronica[]> {
+    let entradas = Array.from(this.entradasEletronicas.values());
+
+    if (usuarioId) {
+      entradas = entradas.filter(e => e.usuarioId === usuarioId);
+    }
+    if (data) {
+      entradas = entradas.filter(e => e.data === data);
+    }
+
+    return entradas.sort((a, b) => new Date(b.data + ' ' + b.hora).getTime() - new Date(a.data + ' ' + a.hora).getTime());
+  }
+
+  async getEntradaEletronicaById(id: number): Promise<EntradaEletronica | undefined> {
+    return this.entradasEletronicas.get(id);
+  }
+
+  async createEntradaEletronica(insertEntrada: InsertEntradaEletronica): Promise<EntradaEletronica> {
+    const id = this.currentEntradaEletronicaId++;
+    const entrada: EntradaEletronica = { ...insertEntrada, id };
+    this.entradasEletronicas.set(id, entrada);
+    return entrada;
+  }
+
+  async updateEntradaEletronica(id: number, updateData: Partial<InsertEntradaEletronica>): Promise<EntradaEletronica | undefined> {
+    const entrada = this.entradasEletronicas.get(id);
+    if (!entrada) return undefined;
+
+    const updatedEntrada = { ...entrada, ...updateData };
+    this.entradasEletronicas.set(id, updatedEntrada);
+    return updatedEntrada;
+  }
+
+  async deleteEntradaEletronica(id: number): Promise<boolean> {
+    return this.entradasEletronicas.delete(id);
+  }
+
+  // Saídas methods
+  async getSaidas(usuarioId?: number, data?: string): Promise<Saida[]> {
+    let saidas = Array.from(this.saidas.values());
+
+    if (usuarioId) {
+      saidas = saidas.filter(s => s.usuarioId === usuarioId);
+    }
+    if (data) {
+      saidas = saidas.filter(s => s.data === data);
+    }
+
+    return saidas.sort((a, b) => new Date(b.data + ' ' + b.hora).getTime() - new Date(a.data + ' ' + a.hora).getTime());
+  }
+
+  async getSaidaById(id: number): Promise<Saida | undefined> {
+    return this.saidas.get(id);
+  }
+
+  async createSaida(insertSaida: InsertSaida): Promise<Saida> {
+    const id = this.currentSaidaId++;
+    const saida: Saida = { ...insertSaida, id };
+    this.saidas.set(id, saida);
+    return saida;
+  }
+
+  async updateSaida(id: number, updateData: Partial<InsertSaida>): Promise<Saida | undefined> {
+    const saida = this.saidas.get(id);
+    if (!saida) return undefined;
+
+    const updatedSaida = { ...saida, ...updateData };
+    this.saidas.set(id, updatedSaida);
+    return updatedSaida;
+  }
+
+  async deleteSaida(id: number): Promise<boolean> {
+    return this.saidas.delete(id);
+  }
+
+  // A Receber methods
+  async getAReceber(usuarioId?: number, data?: string): Promise<AReceber[]> {
+    let aReceber = Array.from(this.aReceber.values());
+
+    if (usuarioId) {
+      aReceber = aReceber.filter(a => a.usuarioId === usuarioId);
+    }
+    if (data) {
+      aReceber = aReceber.filter(a => a.data === data);
+    }
+
+    return aReceber.sort((a, b) => new Date(b.data + ' ' + b.hora).getTime() - new Date(a.data + ' ' + a.hora).getTime());
+  }
+
+  async getAReceberById(id: number): Promise<AReceber | undefined> {
+    return this.aReceber.get(id);
+  }
+
+  async createAReceber(insertAReceber: InsertAReceber): Promise<AReceber> {
+    const id = this.currentAReceberId++;
+    const aReceber: AReceber = { ...insertAReceber, id };
+    this.aReceber.set(id, aReceber);
+    return aReceber;
+  }
+
+  async updateAReceber(id: number, updateData: Partial<InsertAReceber>): Promise<AReceber | undefined> {
+    const aReceber = this.aReceber.get(id);
+    if (!aReceber) return undefined;
+
+    const updatedAReceber = { ...aReceber, ...updateData };
+    this.aReceber.set(id, updatedAReceber);
+    return updatedAReceber;
+  }
+
+  async deleteAReceber(id: number): Promise<boolean> {
+    return this.aReceber.delete(id);
+  }
+
+  // =============================================================
+  // MÉTODOS LEGACY (MANTIDOS PARA COMPATIBILIDADE)
+  // =============================================================
 
   // User management methods
   async getUsers(): Promise<User[]> {
