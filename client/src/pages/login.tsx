@@ -1,141 +1,73 @@
-import { useState } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import logoPath from '@assets/logo-removebg-preview.png';
-import { useToast } from '@/hooks/use-toast';
-import { useMutation } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import logo from '../assets/logo.png';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
-  senha: z.string().min(1, 'Senha é obrigatória'),
+  senha: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
+type LoginFormData = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginForm>({
+function Login() {
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginForm) => {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Erro no login');
-      }
-      
-      return response.json();
-    },
-    onSuccess: (user: any) => {
-      toast({
-        title: 'Login realizado com sucesso!',
-        description: `Bem-vindo, ${user.name}!`,
-      });
-      // Redirect to dashboard
-      window.location.href = '/';
-    },
-    onError: (error) => {
-      toast({
-        title: 'Erro no login',
-        description: 'Email ou senha incorretos',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const onSubmit = (data: LoginForm) => {
-    loginMutation.mutate(data);
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      await signIn(data.email, data.senha);
+      navigate('/dashboard');
+    } catch (error) {
+      alert('Erro ao fazer login. Verifique suas credenciais.');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-300 via-blue-500 to-blue-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-white shadow-2xl">
-        <CardContent className="p-8">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <img 
-              src={logoPath} 
-              alt="TOP Vistorias" 
-              className="h-20 w-auto"
+    <div className="min-h-screen flex items-center justify-center bg-[#20446A]">
+      <div className="bg-white rounded-xl shadow-lg p-10 w-full max-w-md flex flex-col items-center">
+        <img src={logo} alt="Logo Top Vistorias" className="w-32 mb-4" />
+        <h2 className="text-2xl font-bold text-[#20446A] text-center mb-1">TOP VISTORIAS</h2>
+        <p className="text-[#20446A] text-center mb-6">Acesso ao Sistema de Caixa</p>
+        <form className="w-full" onSubmit={handleSubmit(onSubmit)}>
+          <div className="mb-4">
+            <input
+              {...register('email')}
+              type="email"
+              placeholder="Email"
+              className="w-full px-4 py-2 border border-gray-300 rounded mb-1 focus:outline-none focus:ring-2 focus:ring-[#20446A]"
             />
+            {errors.email && (
+              <p className="text-sm text-red-600">{errors.email.message}</p>
+            )}
           </div>
-
-          {/* Título */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">TOP VISTORIAS</h1>
-            <p className="text-gray-600 text-sm">Acesso ao Sistema de Caixa</p>
+          <div className="mb-6">
+            <input
+              {...register('senha')}
+              type="password"
+              placeholder="Senha"
+              className="w-full px-4 py-2 border border-gray-300 rounded mb-1 focus:outline-none focus:ring-2 focus:ring-[#20446A]"
+            />
+            {errors.senha && (
+              <p className="text-sm text-red-600">{errors.senha.message}</p>
+            )}
           </div>
-
-          {/* Formulário */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Email */}
-            <div>
-              <Input
-                {...register('email')}
-                type="email"
-                placeholder="Email"
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={loginMutation.isPending}
-              />
-              {errors.email && (
-                <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
-              )}
-            </div>
-
-            {/* Senha */}
-            <div>
-              <Input
-                {...register('senha')}
-                type="password"
-                placeholder="Senha"
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={loginMutation.isPending}
-              />
-              {errors.senha && (
-                <p className="text-red-500 text-sm mt-1">{errors.senha.message}</p>
-              )}
-            </div>
-
-            {/* Botão Entrar */}
-            <Button
-              type="submit"
-              disabled={loginMutation.isPending}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-md transition-colors duration-200"
-            >
-              {loginMutation.isPending ? 'Entrando...' : 'Entrar'}
-            </Button>
-          </form>
-
-          {/* Link esqueci a senha (opcional) */}
-          <div className="text-center mt-6">
-            <a 
-              href="#" 
-              className="text-blue-600 hover:text-blue-800 text-sm transition-colors duration-200"
-            >
-              Esqueci minha senha
-            </a>
-          </div>
-        </CardContent>
-      </Card>
+          <button
+            type="submit"
+            className="w-full py-2 rounded bg-[#F59E1B] text-white font-semibold text-lg hover:bg-[#d48817] transition-colors"
+          >
+            Entrar
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
+
+export default Login;
