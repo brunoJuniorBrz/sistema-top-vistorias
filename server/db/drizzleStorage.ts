@@ -71,8 +71,8 @@ interface SaidaOperacionalDB {
   lojaId: string;
   userId: string;
   nome: string;
-  valor: string; // Numeric no DB, lido como string
-  dataPagamento: string | null; // Date no DB, lido como string
+  valor: string;
+  dataPagamento: string | null;
 }
 
 interface ContaReceberDB {
@@ -83,9 +83,9 @@ interface ContaReceberDB {
   userId: string;
   nome: string;
   placa: string;
-  valor: string; // Numeric no DB, lido como string
-  pago: boolean | null;
-  dataPagamento: string | null; // Date no DB, lido como string
+  valor: string;
+  pago: boolean;
+  dataPagamento: string | null;
 }
 
 interface FechamentoPrincipalDB {
@@ -433,7 +433,7 @@ export class DrizzleStorage implements IStorage {
           userId: insertFechamento.userId,
           nome: saida.description,
           valor: saida.amount.toString(),
-          dataPagamento: saida.dataPagamento || null,
+          dataPagamento: null,
         }));
 
         if (saidasOperacionaisToInsert.length > 0) {
@@ -444,13 +444,13 @@ export class DrizzleStorage implements IStorage {
         const aReceberToInsert = aReceberData.map((item) => ({
           data: item.dataDebito || insertFechamento.dataFechamento,
           operador: insertFechamento.operatorName,
-          lojaId: item.lojaId || insertFechamento.lojaId,
-          userId: item.userId || insertFechamento.userId,
+          lojaId: insertFechamento.lojaId,
+          userId: insertFechamento.userId,
           nome: item.nomeCliente,
           placa: item.placa,
           valor: item.valorReceber.toString(),
-          pago: item.pago || false,
-          dataPagamento: item.dataPagamento || null,
+          pago: false,
+          dataPagamento: null,
         }));
 
         if (aReceberToInsert.length > 0) {
