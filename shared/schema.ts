@@ -1,8 +1,59 @@
-import { pgTable, text, serial, integer, decimal, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, decimal, timestamp, boolean, date, time, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table
+// Tabela: usuarios (Nova estrutura conforme especificado)
+export const usuarios = pgTable("usuarios", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+  email: text("email").unique().notNull(),
+  senha: text("senha").notNull(),
+  tipoUsuario: text("tipo_usuario").notNull(), // 'admin' ou 'funcionario'
+});
+
+// Tabela: entradas
+export const entradas = pgTable("entradas", {
+  id: serial("id").primaryKey(),
+  valor: numeric("valor", { precision: 10, scale: 2 }).notNull(),
+  descricao: text("descricao"),
+  data: date("data").notNull(),
+  hora: time("hora").notNull(),
+  usuarioId: integer("usuario_id").notNull().references(() => usuarios.id),
+});
+
+// Tabela: entradas_eletronicas
+export const entradasEletronicas = pgTable("entradas_eletronicas", {
+  id: serial("id").primaryKey(),
+  valor: numeric("valor", { precision: 10, scale: 2 }).notNull(),
+  formaPagamento: text("forma_pagamento").notNull(),
+  descricao: text("descricao"),
+  data: date("data").notNull(),
+  hora: time("hora").notNull(),
+  usuarioId: integer("usuario_id").notNull().references(() => usuarios.id),
+});
+
+// Tabela: saidas
+export const saidas = pgTable("saidas", {
+  id: serial("id").primaryKey(),
+  valor: numeric("valor", { precision: 10, scale: 2 }).notNull(),
+  descricao: text("descricao"),
+  data: date("data").notNull(),
+  hora: time("hora").notNull(),
+  usuarioId: integer("usuario_id").notNull().references(() => usuarios.id),
+});
+
+// Tabela: a_receber (Nova estrutura)
+export const aReceber = pgTable("a_receber", {
+  id: serial("id").primaryKey(),
+  valor: numeric("valor", { precision: 10, scale: 2 }).notNull(),
+  cliente: text("cliente"),
+  descricao: text("descricao"),
+  data: date("data").notNull(),
+  hora: time("hora").notNull(),
+  usuarioId: integer("usuario_id").notNull().references(() => usuarios.id),
+});
+
+// Users table (Legacy - mantido para compatibilidade)
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   uid: text("uid").notNull().unique(),
@@ -114,7 +165,28 @@ export const registerSessions = pgTable("register_sessions", {
   operatorName: text("operator_name").notNull().default("Sistema"),
 });
 
-// Insert schemas for the new cash closing system
+// Insert schemas para as novas tabelas
+export const insertUsuarioSchema = createInsertSchema(usuarios).omit({
+  id: true,
+});
+
+export const insertEntradaSchema = createInsertSchema(entradas).omit({
+  id: true,
+});
+
+export const insertEntradaEletronicaSchema = createInsertSchema(entradasEletronicas).omit({
+  id: true,
+});
+
+export const insertSaidaSchema = createInsertSchema(saidas).omit({
+  id: true,
+});
+
+export const insertAReceberSchema = createInsertSchema(aReceber).omit({
+  id: true,
+});
+
+// Insert schemas for the legacy tables
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -149,7 +221,23 @@ export const insertRegisterSessionSchema = createInsertSchema(registerSessions).
   id: true,
 });
 
-// Type definitions for the new cash closing system
+// Tipos para as novas tabelas
+export type Usuario = typeof usuarios.$inferSelect;
+export type InsertUsuario = z.infer<typeof insertUsuarioSchema>;
+
+export type Entrada = typeof entradas.$inferSelect;
+export type InsertEntrada = z.infer<typeof insertEntradaSchema>;
+
+export type EntradaEletronica = typeof entradasEletronicas.$inferSelect;
+export type InsertEntradaEletronica = z.infer<typeof insertEntradaEletronicaSchema>;
+
+export type Saida = typeof saidas.$inferSelect;
+export type InsertSaida = z.infer<typeof insertSaidaSchema>;
+
+export type AReceber = typeof aReceber.$inferSelect;
+export type InsertAReceber = z.infer<typeof insertAReceberSchema>;
+
+// Type definitions for the legacy tables
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 

@@ -15,11 +15,59 @@ import {
   InsertRegisterSession,
   CartItem,
   DailyStats,
-  ClosingCalculatedTotals
+  ClosingCalculatedTotals,
+  // Novos tipos
+  Usuario,
+  InsertUsuario,
+  Entrada,
+  InsertEntrada,
+  EntradaEletronica,
+  InsertEntradaEletronica,
+  Saida,
+  InsertSaida,
+  AReceber,
+  InsertAReceber
 } from "@shared/schema";
 
 export interface IStorage {
-  // Users
+  // Novos métodos para as tabelas especificadas
+  // Usuarios
+  getUsuarios(): Promise<Usuario[]>;
+  getUsuarioById(id: number): Promise<Usuario | undefined>;
+  getUsuarioByEmail(email: string): Promise<Usuario | undefined>;
+  createUsuario(usuario: InsertUsuario): Promise<Usuario>;
+  updateUsuario(id: number, usuario: Partial<InsertUsuario>): Promise<Usuario | undefined>;
+  deleteUsuario(id: number): Promise<boolean>;
+  
+  // Entradas
+  getEntradas(usuarioId?: number, data?: string): Promise<Entrada[]>;
+  getEntradaById(id: number): Promise<Entrada | undefined>;
+  createEntrada(entrada: InsertEntrada): Promise<Entrada>;
+  updateEntrada(id: number, entrada: Partial<InsertEntrada>): Promise<Entrada | undefined>;
+  deleteEntrada(id: number): Promise<boolean>;
+  
+  // Entradas Eletrônicas
+  getEntradasEletronicas(usuarioId?: number, data?: string): Promise<EntradaEletronica[]>;
+  getEntradaEletronicaById(id: number): Promise<EntradaEletronica | undefined>;
+  createEntradaEletronica(entrada: InsertEntradaEletronica): Promise<EntradaEletronica>;
+  updateEntradaEletronica(id: number, entrada: Partial<InsertEntradaEletronica>): Promise<EntradaEletronica | undefined>;
+  deleteEntradaEletronica(id: number): Promise<boolean>;
+  
+  // Saídas
+  getSaidas(usuarioId?: number, data?: string): Promise<Saida[]>;
+  getSaidaById(id: number): Promise<Saida | undefined>;
+  createSaida(saida: InsertSaida): Promise<Saida>;
+  updateSaida(id: number, saida: Partial<InsertSaida>): Promise<Saida | undefined>;
+  deleteSaida(id: number): Promise<boolean>;
+  
+  // A Receber
+  getAReceber(usuarioId?: number, data?: string): Promise<AReceber[]>;
+  getAReceberById(id: number): Promise<AReceber | undefined>;
+  createAReceber(aReceber: InsertAReceber): Promise<AReceber>;
+  updateAReceber(id: number, aReceber: Partial<InsertAReceber>): Promise<AReceber | undefined>;
+  deleteAReceber(id: number): Promise<boolean>;
+
+  // Legacy Users
   getUsers(): Promise<User[]>;
   getUserByUid(uid: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -62,7 +110,14 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  // Cash closing system data
+  // Novas tabelas especificadas
+  private usuarios: Map<number, Usuario>;
+  private entradas: Map<number, Entrada>;
+  private entradasEletronicas: Map<number, EntradaEletronica>;
+  private saidas: Map<number, Saida>;
+  private aReceber: Map<number, AReceber>;
+  
+  // Cash closing system data (legacy)
   private users: Map<number, User>;
   private fechamentos: Map<number, Fechamento>;
   private receivables: Map<number, Receivable>;
@@ -74,6 +129,11 @@ export class MemStorage implements IStorage {
   private registerSessions: Map<number, RegisterSession>;
   
   // ID counters
+  private currentUsuarioId: number;
+  private currentEntradaId: number;
+  private currentEntradaEletronicaId: number;
+  private currentSaidaId: number;
+  private currentAReceberId: number;
   private currentUserId: number;
   private currentFechamentoId: number;
   private currentReceivableId: number;
